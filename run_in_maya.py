@@ -12,14 +12,27 @@ import time
 
 import maya.cmds as cmds
 
+from backend.cliff import CliffBuilder, CliffParams
 
 def run() -> None:
-    """Ejecuta una prueba mínima para validar que el proyecto corre en Maya."""
     start_time = time.time()
 
-    # Creamos un cubo de prueba para verificar que el script está funcionando.
-    cube, _ = cmds.polyCube(name="TEST_cube_GEO", w=1, h=1, d=1)
-    cmds.select(cube)
+    # Limpieza de iteración anterior
+    CliffBuilder.cleanup()
+
+    # Construcción del acantilado
+    params = CliffParams(
+        width=35.0,
+        height=12.0,
+        depth=35.0,
+        sub_x=50,
+        sub_y=25,
+        sub_z=50,
+        noise_amplitude=1.4,
+        seed=7,
+    )
+    cliff = CliffBuilder(params).build()
+    cmds.select(cliff)
 
     elapsed = time.time() - start_time
-    print(f"[MAYA-LIGHTHOUSE] Test OK. Created: {cube}. Time: {elapsed:.3f}s")
+    print(f"[MAYA-LIGHTHOUSE] Cliff created: {cliff}. Time: {elapsed:.3f}s")
