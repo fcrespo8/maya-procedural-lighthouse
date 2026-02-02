@@ -28,6 +28,9 @@ class CliffParams:
     sub_z: int = 40
     noise_amplitude: float = 1.2  # intensidad máxima del desplazamiento
     seed: int = 42
+    enable_face_colors: bool = True
+    face_color_base: float = 0.35      # gris base
+    face_color_variation: float = 0.08 # variación leve (+/-)
 
 
 class CliffBuilder:
@@ -35,6 +38,8 @@ class CliffBuilder:
 
     ROOT_GRP = "LHT_root_GRP"   # Lighthouse Tool root group
     CLIFF_GRP = "LHT_cliff_GRP"
+    LIGHT_TR = "LHT_keyLight"
+
 
     def __init__(self, params: CliffParams) -> None:
         self.params = params
@@ -47,8 +52,10 @@ class CliffBuilder:
         Crea el acantilado y devuelve el nombre del transform principal.
         """
         self._ensure_groups()
+        self._ensure_preview_light()
         cliff_transform = self._create_base_cube()
         self._apply_vertex_noise(cliff_transform)
+        self._apply_face_color_variation(cliff_transform)
         self._assign_material(cliff_transform)
         return cliff_transform
 
@@ -151,3 +158,67 @@ class CliffBuilder:
             )
 
         cmds.sets(transform, edit=True, forceElement=shading_group)
+    def _apply_face_color_variation(self, transform: str) -> None:
+        """
+        Aplica una variación leve de color por cara usando display colors.
+        Esto mejora la lectura tipo "roca" sin texturas.
+        """
+        p = self.params
+        if not p.enable_face_colors:
+            return
+
+        # Asegura reproducibilidad
+        random.seed(p.seed + 1000)
+
+        faces = cmds.ls(f"{transform}.f[*]", flatten=True) or []
+        if not faces:
+            return
+
+        base = p.face_color_base
+        var = p.face_color_variation
+
+        # Aplicamos un gris random por cara (muy leve)
+        for f in faces:
+            v = random.uniform(-var, var)
+            c = max(0.0, min(1.0, base + v))
+            cmds.polyColorPerVertex(f, rgb=(c, c, c), colorDisplayOption=True)
+
+        # Aseguramos que el mesh muestre display colors
+        shapes = cmds.listRelatives(transform, shapes=True, fullPath=True) or []
+        for shape in shapes:
+            try:
+                cmds.setAttr(f"{shape}.displayColors", 1)
+            except Exception:
+                pass
+
+    def _ensure_preview_light(self) -> None:
+        """
+        Crea (o reutiliza) una luz direccional para previsualización.
+        La parenta al ROOT_GRP para que cleanup la elimine.
+        """
+        if cmds.objExists(self.LIGHT_TR):
+            return
+
+        light_tr = cmds.directionalLight(name=self.LIGHT_TR)
+        # En Maya, cmds.directionalLight devuelve el shape; buscamos el transform
+        if cmds.nodeType(light_tr) == "directionalLight":
+            # Si devolvió el shape, el transform es su parent
+            parents = cmds.listRelatives(light_tr, parent=True, fullPath=False) or []
+            light_tr = parents[0] if parents else self.LIGHT_TR
+
+        # Parent al root del tool
+        cmds.parent(light_tr, self.ROOT_GRP)
+
+        # Rotación típica para “key light”
+        cmds.setAttr(f"{light_tr}.rotateX", -45)
+        cmds.setAttr(f"{light_tr}.rotateY", 35)
+        cmds.setAttr(f"{light_tr}.rotateZ", 0)
+
+        # Intensidad (attribute depende del shape)
+        shape = cmds.listRelatives(light_tr, shapes=True, fullPath=False) or []
+        if shape:
+            # intensity existe en directionalLight
+            cmds.setAttr(f"{shape[0]}.intensity", 1.2)
+
+        # Opcional: sombras viewport (según settings de Maya/renderer)
+        # No lo forzamos demasiado para no pelear con configs del usuario.
