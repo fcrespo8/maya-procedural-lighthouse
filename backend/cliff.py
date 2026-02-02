@@ -52,11 +52,14 @@ class CliffBuilder:
         Crea el acantilado y devuelve el nombre del transform principal.
         """
         self._ensure_groups()
-        self._ensure_preview_light()
+
         cliff_transform = self._create_base_cube()
         self._apply_vertex_noise(cliff_transform)
         self._apply_face_color_variation(cliff_transform)
         self._assign_material(cliff_transform)
+
+        self._ensure_preview_light(cliff_transform)
+
         return cliff_transform
 
     @classmethod
@@ -191,34 +194,42 @@ class CliffBuilder:
             except Exception:
                 pass
 
-    def _ensure_preview_light(self) -> None:
+    def _ensure_preview_light(self, target_transform: str) -> None:
         """
-        Crea (o reutiliza) una luz direccional para previsualización.
-        La parenta al ROOT_GRP para que cleanup la elimine.
+        Crea o reutiliza una directional light para previsualización
+        y la coloca 'arriba' del acantilado (solo por orden visual).
+        La dirección real de la luz depende de la rotación.
         """
-        if cmds.objExists(self.LIGHT_TR):
-            return
+        light_tr = self.LIGHT_TR
+        light_shape = f"{self.LIGHT_TR}Shape"
 
-        light_tr = cmds.directionalLight(name=self.LIGHT_TR)
-        # En Maya, cmds.directionalLight devuelve el shape; buscamos el transform
-        if cmds.nodeType(light_tr) == "directionalLight":
-            # Si devolvió el shape, el transform es su parent
-            parents = cmds.listRelatives(light_tr, parent=True, fullPath=False) or []
-            light_tr = parents[0] if parents else self.LIGHT_TR
+        # Crear si no existe
+        if not cmds.objExists(light_tr):
+            light_shape = cmds.createNode("directionalLight", name=light_shape)
+            parents = cmds.listRelatives(light_shape, parent=True, fullPath=False) or []
+            light_tr = parents[0] if parents else cmds.rename(light_shape, self.LIGHT_TR)
 
-        # Parent al root del tool
-        cmds.parent(light_tr, self.ROOT_GRP)
+            # Parentear al root del tool
+            cmds.parent(light_tr, self.ROOT_GRP)
 
-        # Rotación típica para “key light”
-        cmds.setAttr(f"{light_tr}.rotateX", -45)
+        # Posicionar arriba del cliff (visual)
+        bbox = cmds.exactWorldBoundingBox(target_transform)
+        min_x, min_y, min_z, max_x, max_y, max_z = bbox
+        cx = (min_x + max_x) * 0.5
+        cz = (min_z + max_z) * 0.5
+
+        height_offset = (max_y - min_y) * 1.5  # ajustable
+        cmds.setAttr(f"{light_tr}.translateX", cx)
+        cmds.setAttr(f"{light_tr}.translateY", max_y + height_offset)
+        cmds.setAttr(f"{light_tr}.translateZ", cz)
+
+        # Dirección de luz (esto es lo que realmente importa)
+        cmds.setAttr(f"{light_tr}.rotateX", -55)
         cmds.setAttr(f"{light_tr}.rotateY", 35)
         cmds.setAttr(f"{light_tr}.rotateZ", 0)
 
-        # Intensidad (attribute depende del shape)
-        shape = cmds.listRelatives(light_tr, shapes=True, fullPath=False) or []
-        if shape:
-            # intensity existe en directionalLight
-            cmds.setAttr(f"{shape[0]}.intensity", 1.2)
+        # Potencia
+        shapes = cmds.listRelatives(light_tr, shapes=True, fullPath=False) or []
+        if shapes:
+            cmds.setAttr(f"{shapes[0]}.intensity", 2.5)
 
-        # Opcional: sombras viewport (según settings de Maya/renderer)
-        # No lo forzamos demasiado para no pelear con configs del usuario.
