@@ -29,4 +29,4 @@ def run() -> None:
     cmds.select(cliff)
 
     elapsed = time.time() - start_time
-    print(f"[!!!!!!!!!!!!! MAYA-LIGHTHOUSE] Cliff created: {cliff}. Time: {elapsed:.3f}s")
+    print(f"[--- MAYA-LIGHTHOUSE] Cliff created: {cliff}. Time: {elapsed:.3f}s")

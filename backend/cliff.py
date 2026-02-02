@@ -49,6 +49,7 @@ class CliffBuilder:
         self._ensure_groups()
         cliff_transform = self._create_base_cube()
         self._apply_vertex_noise(cliff_transform)
+        self._assign_material(cliff_transform)
         return cliff_transform
 
     @classmethod
@@ -119,3 +120,34 @@ class CliffBuilder:
             dz = random.uniform(-strength, strength)
 
             cmds.move(dx, dy, dz, vtx, r=True, os=True, wd=True)
+
+    def _assign_material(self, transform: str) -> None:
+        """
+        Asigna un material simple tipo roca al acantilado.
+        Si ya existe, lo reutiliza.
+        """
+        material_name = "LHT_cliff_MAT"
+        shading_group = f"{material_name}SG"
+
+        if not cmds.objExists(material_name):
+            material = cmds.shadingNode(
+                "lambert",
+                asShader=True,
+                name=material_name,
+            )
+            cmds.setAttr(f"{material}.color", 0.35, 0.35, 0.35, type="double3")
+            cmds.setAttr(f"{material}.diffuse", 0.8)
+
+            shading_group = cmds.sets(
+                renderable=True,
+                noSurfaceShader=True,
+                empty=True,
+                name=shading_group,
+            )
+            cmds.connectAttr(
+                f"{material}.outColor",
+                f"{shading_group}.surfaceShader",
+                force=True,
+            )
+
+        cmds.sets(transform, edit=True, forceElement=shading_group)
