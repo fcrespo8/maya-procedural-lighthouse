@@ -40,6 +40,7 @@ class CliffBuilder:
     CLIFF_GRP = "LHT_cliff_GRP"
     LIGHT_TR = "LHT_keyLight"
     AMBIENT_LIGHT_TR = "LHT_fillLight"
+    PREVIEW_GRP = "LHT_preview_GRP"
 
 
 
@@ -82,6 +83,9 @@ class CliffBuilder:
         if not cmds.objExists(self.CLIFF_GRP):
             cliff_grp = cmds.group(empty=True, name=self.CLIFF_GRP, parent=self.ROOT_GRP)
             cmds.setAttr(f"{cliff_grp}.visibility", 1)
+        if not cmds.objExists(self.PREVIEW_GRP):
+            cmds.group(empty=True, name=self.PREVIEW_GRP, parent=self.ROOT_GRP)
+
 
     def _create_base_cube(self) -> str:
         """Crea un polyCube con subdivisiones, lo mete en el grupo y retorna el transform."""
@@ -177,7 +181,7 @@ class CliffBuilder:
         p = self.params
         if self.params.quality == "draft":
             return
-        
+
         if not p.enable_face_colors:
             return
 
@@ -267,6 +271,6 @@ class CliffBuilder:
         if shapes:
             shape = shapes[0]
             if cmds.attributeQuery("intensity", node=shape, exists=True):
-                cmds.setAttr(f"{shape}.intensity", 2.5)
+                cmds.setAttr(f"{shape}.intensity", 0.25)
             if cmds.attributeQuery("illuminateByDefault", node=shape, exists=True):
                 cmds.setAttr(f"{shape}.illuminateByDefault", 1)
