@@ -10,9 +10,10 @@ from backend.cliff import CliffBuilder, CliffParams
 
 
 def run() -> None:
-    start_time = time.time()
+    t0 = time.time()
 
     CliffBuilder.cleanup()
+    t_cleanup = time.time()
 
     params = CliffParams(
         quality="draft",
@@ -28,7 +29,13 @@ def run() -> None:
     )
 
     cliff = CliffBuilder(params).build()
-    cmds.select(cliff)
+    t_build = time.time()
 
-    elapsed = time.time() - start_time
-    print(f"[--- MAYA-LIGHTHOUSE] Cliff created: {cliff}. Time: {elapsed:.3f}s")
+    cmds.select(cliff)
+    t_end = time.time()
+
+    print("[--- MAYA-LIGHTHOUSE] Done")
+    print(f"  Cleanup: {(t_cleanup - t0):.3f}s")
+    print(f"  Build:   {(t_build - t_cleanup):.3f}s")
+    print(f"  Select:  {(t_end - t_build):.3f}s")
+    print(f"  Total:   {(t_end - t0):.3f}s")
