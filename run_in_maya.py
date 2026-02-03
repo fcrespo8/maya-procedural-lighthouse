@@ -15,6 +15,8 @@ def run() -> None:
     CliffBuilder.cleanup()
 
     params = CliffParams(
+        quality="draft",
+        # quality="high",
         width=35.0,
         height=12.0,
         depth=35.0,

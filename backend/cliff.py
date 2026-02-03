@@ -31,7 +31,7 @@ class CliffParams:
     enable_face_colors: bool = True
     face_color_base: float = 0.35      # gris base
     face_color_variation: float = 0.08 # variación leve (+/-)
-
+    quality: str = "draft"  # "draft" | "high"
 
 class CliffBuilder:
     """Builder responsable de crear y deformar el acantilado."""
@@ -87,14 +87,19 @@ class CliffBuilder:
         """Crea un polyCube con subdivisiones, lo mete en el grupo y retorna el transform."""
         p = self.params
 
+        if p.quality == "draft":
+            sx, sy, sz = 20, 10, 20
+        else:
+            sx, sy, sz = p.sub_x, p.sub_y, p.sub_z
+
         transform, _shape = cmds.polyCube(
             name=p.name,
             w=p.width,
             h=p.height,
             d=p.depth,
-            sx=p.sub_x,
-            sy=p.sub_y,
-            sz=p.sub_z,
+            sx=sx,
+            sy=sy,
+            sz=sz,
         )
 
         cmds.parent(transform, self.CLIFF_GRP)
@@ -170,6 +175,9 @@ class CliffBuilder:
         Esto mejora la lectura tipo "roca" sin texturas.
         """
         p = self.params
+        if self.params.quality == "draft":
+            return
+        
         if not p.enable_face_colors:
             return
 
