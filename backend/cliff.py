@@ -39,6 +39,8 @@ class CliffBuilder:
     ROOT_GRP = "LHT_root_GRP"   # Lighthouse Tool root group
     CLIFF_GRP = "LHT_cliff_GRP"
     LIGHT_TR = "LHT_keyLight"
+    AMBIENT_LIGHT_TR = "LHT_fillLight"
+
 
 
     def __init__(self, params: CliffParams) -> None:
@@ -59,6 +61,7 @@ class CliffBuilder:
         self._assign_material(cliff_transform)
 
         self._ensure_preview_light(cliff_transform)
+        self._ensure_fill_light()
 
         return cliff_transform
 
@@ -231,5 +234,31 @@ class CliffBuilder:
         # Potencia
         shapes = cmds.listRelatives(light_tr, shapes=True, fullPath=False) or []
         if shapes:
-            cmds.setAttr(f"{shapes[0]}.intensity", 2.5)
+            shape = shapes[0]
+            if cmds.attributeQuery("intensity", node=shape, exists=True):
+                cmds.setAttr(f"{shape}.intensity", 2.5)
+            if cmds.attributeQuery("illuminateByDefault", node=shape, exists=True):
+                cmds.setAttr(f"{shape}.illuminateByDefault", 1)
 
+    def _ensure_fill_light(self) -> None:
+        """
+        Crea o reutiliza una ambient light suave para evitar negros puros
+        cuando se usa 'Use All Lights' en viewport.
+        """
+        if cmds.objExists(self.AMBIENT_LIGHT_TR):
+            return
+
+        light_shape = cmds.createNode("ambientLight", name=f"{self.AMBIENT_LIGHT_TR}Shape")
+        parents = cmds.listRelatives(light_shape, parent=True, fullPath=False) or []
+        light_tr = parents[0] if parents else cmds.rename(light_shape, self.AMBIENT_LIGHT_TR)
+
+        cmds.parent(light_tr, self.ROOT_GRP)
+
+        # Intensidad MUY baja (solo fill)
+        shapes = cmds.listRelatives(light_tr, shapes=True, fullPath=False) or []
+        if shapes:
+            shape = shapes[0]
+            if cmds.attributeQuery("intensity", node=shape, exists=True):
+                cmds.setAttr(f"{shape}.intensity", 2.5)
+            if cmds.attributeQuery("illuminateByDefault", node=shape, exists=True):
+                cmds.setAttr(f"{shape}.illuminateByDefault", 1)
