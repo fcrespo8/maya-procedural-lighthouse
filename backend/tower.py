@@ -23,6 +23,15 @@ class TowerParams:
     subdivisions_axis: int = 24
     subdivisions_height: int = 10
     quality: str = "draft"  # "draft" | "high"
+    add_bands: bool = True
+    band_count: int = 3
+    band_height_ratio: float = 0.08  # % de altura total por banda
+    band_outset: float = 0.15        # cuánto sobresale
+    add_door: bool = True
+    door_width: float = 1.6
+    door_height: float = 3.2
+    door_depth: float = 0.2
+
 
 
 class TowerBuilder:
@@ -35,6 +44,7 @@ class TowerBuilder:
     def build(self) -> str:
         self._ensure_groups()
         tower = self._create_tapered_cylinder()
+        self._add_details(tower)
         self._assign_material(tower)
         return tower
 
@@ -84,6 +94,81 @@ class TowerBuilder:
         cmds.select(clear=True)
         cmds.makeIdentity(transform, apply=True, t=1, r=1, s=1, n=0)
         return transform
+
+    def _add_details(self, transform: str) -> None:
+        p = self.params
+
+        if p.add_bands:
+            self._add_bands(transform)
+
+        if p.add_door:
+            self._add_door(transform)
+
+    def _add_bands(self, transform: str) -> None:
+        """
+        Crea bandas horizontales extruyendo loops de caras cercanas a ciertas alturas.
+        """
+        p = self.params
+
+        # En draft, pocas bandas / menor costo
+        band_count = p.band_count if p.quality != "draft" else max(1, p.band_count - 1)
+
+        bbox = cmds.exactWorldBoundingBox(transform)
+        min_y, max_y = bbox[1], bbox[4]
+        height = max(max_y - min_y, 0.0001)
+
+        # alturas relativas: abajo, medio, arriba
+        rel_positions = [0.20, 0.50, 0.80][:band_count]
+
+        for rel in rel_positions:
+            y = min_y + height * rel
+
+            # Seleccionar caras cercanas a ese Y (simple: buscar caras cuyo centro esté cerca)
+            faces = cmds.ls(f"{transform}.f[*]", flatten=True) or []
+            target_faces = []
+
+            for f in faces[::10] if p.quality == "draft" else faces:
+                center = cmds.xform(f, q=True, ws=True, t=True)
+                if abs(center[1] - y) < (height * p.band_height_ratio):
+                    target_faces.append(f)
+
+            if not target_faces:
+                continue
+
+            cmds.select(target_faces, r=True)
+            cmds.polyExtrudeFacet(
+                ltz=p.band_outset,  # empuja hacia afuera
+                ls=(1.0, 1.0, 1.0),
+                ch=False,
+            )
+
+        cmds.select(clear=True)
+
+    def _add_door(self, transform: str) -> None:
+        """
+        Agrega una puerta simple como cubo pegado al frente del faro.
+        """
+        p = self.params
+
+        bbox = cmds.exactWorldBoundingBox(transform)
+        min_x, min_y, min_z, max_x, max_y, max_z = bbox
+
+        cx = (min_x + max_x) * 0.5
+        cz = max_z  # "frente" asumido
+        y = min_y + (p.door_height * 0.5)
+
+        door_tr, _ = cmds.polyCube(
+            name="towerDoor_GEO",
+            w=p.door_width,
+            h=p.door_height,
+            d=p.door_depth,
+        )
+
+        # colocar ligeramente “afuera”
+        cmds.xform(door_tr, ws=True, t=(cx, y, cz + (p.door_depth * 0.5)))
+
+        cmds.parent(door_tr, self.TOWER_GRP)
+        cmds.makeIdentity(door_tr, apply=True, t=1, r=1, s=1, n=0)
 
     def _assign_material(self, transform: str) -> None:
         material_name = "LHT_tower_MAT"
