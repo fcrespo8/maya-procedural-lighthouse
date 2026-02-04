@@ -12,6 +12,26 @@ def _reload_modules() -> None:
     importlib.reload(backend.cliff)
     importlib.reload(backend.tower)
 
+def _place_on_top(base_transform: str, obj_transform: str, y_offset: float = 0.0) -> None:
+    """
+    Coloca obj_transform centrado en XZ sobre la parte superior de base_transform,
+    usando bounding boxes en world space.
+    """
+    base_bbox = cmds.exactWorldBoundingBox(base_transform)
+    obj_bbox = cmds.exactWorldBoundingBox(obj_transform)
+
+    base_min_x, base_min_y, base_min_z, base_max_x, base_max_y, base_max_z = base_bbox
+    obj_min_x, obj_min_y, obj_min_z, obj_max_x, obj_max_y, obj_max_z = obj_bbox
+
+    base_cx = (base_min_x + base_max_x) * 0.5
+    base_cz = (base_min_z + base_max_z) * 0.5
+
+    obj_height = obj_max_y - obj_min_y
+
+    # Queremos que la base del objeto toque el "top" del cliff
+    target_y = base_max_y + (obj_height * 0.5) + y_offset
+
+    cmds.xform(obj_transform, ws=True, t=(base_cx, target_y, base_cz))
 
 def run() -> None:
     _reload_modules()
@@ -45,6 +65,7 @@ def run() -> None:
         radius_top=3.0,
     )
     tower = TowerBuilder(tower_params).build()
+    _place_on_top(cliff, tower, y_offset=0.0)
 
     cmds.select([cliff, tower], r=True)
     t2 = time.time()
