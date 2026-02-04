@@ -144,18 +144,19 @@ class TowerBuilder:
 
         cmds.select(clear=True)
 
-    def _add_door(self, transform: str) -> None:
+    def _add_door(self, tower_tr: str) -> None:
         """
         Agrega una puerta simple como cubo pegado al frente del faro.
+        Se posiciona relativo al bounding box de la torre en WORLD, así no queda bajo el cliff.
         """
         p = self.params
 
-        bbox = cmds.exactWorldBoundingBox(transform)
+        bbox = cmds.exactWorldBoundingBox(tower_tr)
         min_x, min_y, min_z, max_x, max_y, max_z = bbox
 
         cx = (min_x + max_x) * 0.5
-        cz = max_z  # "frente" asumido
-        y = min_y + (p.door_height * 0.5)
+        cz = max_z  # frente (asumido)
+        base_y = min_y
 
         door_tr, _ = cmds.polyCube(
             name="towerDoor_GEO",
@@ -164,11 +165,16 @@ class TowerBuilder:
             d=p.door_depth,
         )
 
-        # colocar ligeramente “afuera”
-        cmds.xform(door_tr, ws=True, t=(cx, y, cz + (p.door_depth * 0.5)))
+        # Colocar la puerta apoyada sobre la base de la torre
+        y = base_y + (p.door_height * 0.5)
+        z = cz + (p.door_depth * 0.5)
 
-        cmds.parent(door_tr, self.TOWER_GRP)
+        cmds.xform(door_tr, ws=True, t=(cx, y, z))
+
+        # Parent al transform de la torre (no al grupo), así acompaña siempre
+        cmds.parent(door_tr, tower_tr)
         cmds.makeIdentity(door_tr, apply=True, t=1, r=1, s=1, n=0)
+
 
     def _assign_material(self, transform: str) -> None:
         material_name = "LHT_tower_MAT"
