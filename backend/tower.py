@@ -31,6 +31,11 @@ class TowerParams:
     door_width: float = 1.6
     door_height: float = 3.2
     door_depth: float = 0.2
+    add_lantern: bool = True
+    lantern_height: float = 3.5
+    lantern_radius: float = 2.2
+    lantern_roof_height: float = 1.4
+
 
 
 
@@ -104,6 +109,10 @@ class TowerBuilder:
         if p.add_door:
             self._add_door(transform)
 
+        if p.add_lantern:
+            self._add_lantern(transform)
+
+
     def _add_bands(self, transform: str) -> None:
         """
         Crea bandas horizontales extruyendo loops de caras cercanas a ciertas alturas.
@@ -174,6 +183,61 @@ class TowerBuilder:
         # Parent al transform de la torre (no al grupo), así acompaña siempre
         cmds.parent(door_tr, tower_tr)
         cmds.makeIdentity(door_tr, apply=True, t=1, r=1, s=1, n=0)
+
+    def _add_lantern(self, tower_tr: str) -> None:
+        """
+        Agrega una linterna simple arriba de la torre (v1).
+        """
+        p = self.params
+
+        bbox = cmds.exactWorldBoundingBox(tower_tr)
+        min_x, min_y, min_z, max_x, max_y, max_z = bbox
+
+        cx = (min_x + max_x) * 0.5
+        cz = (min_z + max_z) * 0.5
+        top_y = max_y
+
+        # 1) Cuerpo linterna
+        lantern_tr, _ = cmds.polyCylinder(
+            name="lantern_GEO",
+            h=p.lantern_height,
+            r=p.lantern_radius,
+            sx=18 if p.quality == "draft" else 28,
+            sy=2,
+        )
+
+        lantern_y = top_y + (p.lantern_height * 0.5)
+        cmds.xform(lantern_tr, ws=True, t=(cx, lantern_y, cz))
+
+        # 2) Techo: media esfera (rápida)
+        roof_tr, _ = cmds.polySphere(
+            name="lanternRoof_GEO",
+            r=p.lantern_radius * 0.95,
+            sx=18 if p.quality == "draft" else 28,
+            sy=10 if p.quality == "draft" else 16,
+        )
+
+        # Cortar la esfera para que sea "cúpula" (borramos mitad inferior)
+        # Seleccionamos caras con centerY < centro esfera
+        faces = cmds.ls(f"{roof_tr}.f[*]", flatten=True) or []
+        roof_center = cmds.xform(roof_tr, q=True, ws=True, t=True)
+        to_delete = []
+        for f in faces[::8] if p.quality == "draft" else faces:
+            c = cmds.xform(f, q=True, ws=True, t=True)
+            if c[1] < roof_center[1]:
+                to_delete.append(f)
+        if to_delete:
+            cmds.delete(to_delete)
+
+        roof_y = top_y + p.lantern_height + (p.lantern_roof_height * 0.5)
+        cmds.xform(roof_tr, ws=True, t=(cx, roof_y, cz))
+
+        # Parentar al faro
+        cmds.parent(lantern_tr, tower_tr)
+        cmds.parent(roof_tr, tower_tr)
+
+        cmds.makeIdentity(lantern_tr, apply=True, t=1, r=1, s=1, n=0)
+        cmds.makeIdentity(roof_tr, apply=True, t=1, r=1, s=1, n=0)
 
 
     def _assign_material(self, transform: str) -> None:
