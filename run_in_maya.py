@@ -6,12 +6,14 @@ import maya.cmds as cmds
 import backend.cliff
 import backend.tower
 import backend.lighthouse
+import backend.config
 
 
 def _reload_modules() -> None:
     importlib.reload(backend.cliff)
     importlib.reload(backend.tower)
     importlib.reload(backend.lighthouse)
+    importlib.reload(backend.config)
 
 
 def run() -> None:
@@ -26,31 +28,9 @@ def run() -> None:
     LighthouseBuilder.cleanup()
     t1 = time.time()
 
-    cliff_params = CliffParams(
-        quality="draft",
-        width=35.0,
-        height=12.0,
-        depth=35.0,
-        sub_x=50,
-        sub_y=25,
-        sub_z=50,
-        noise_amplitude=1.4,
-        seed=7,
-    )
+    from backend.config import get_preset
+    params = get_preset("shutter", quality="draft")
 
-    tower_params = TowerParams(
-        quality="draft",
-        height=28.0,
-        radius_base=4.0,
-        radius_top=3.0,
-        # tus detalles v1 quedan en TowerParams si los agregaste
-    )
-
-    params = LighthouseParams(
-        cliff=cliff_params,
-        tower=tower_params,
-        placement=PlacementParams(top_ratio=0.08, y_offset=-0.4),
-    )
 
     root = LighthouseBuilder(params).build()
     cmds.select(root, r=True)
