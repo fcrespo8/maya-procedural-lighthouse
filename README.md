@@ -72,3 +72,19 @@ if PROJECT_PATH not in sys.path:
 import ui.simple_ui
 importlib.reload(ui.simple_ui)
 ui.simple_ui.show()
+```
+
+## 👤 Author
+
+**Francisco Crespo**
+Pipeline / Animation Technical Director – Python Developer
+
+This project was developed by me as a **personal learning and portfolio project**, inspired by real-world tools used in animation and VFX pipelines.
+
+The main goal was to:
+- practice clean tool architecture in Maya
+- explore procedural modeling techniques
+- design a scalable system that could realistically exist in a studio environment
+
+All code, structure, and design decisions were implemented from scratch as part of this project.
+
