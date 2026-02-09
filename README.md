@@ -53,3 +53,22 @@ maya-procedural-lighthouse/
 │
 ├── run_in_maya.py        # Maya entrypoint (reload + timing)
 └── README.md
+
+### ✅ Recommended: Create a Shelf Button
+
+1) Open Maya → **Shelves**
+2) Right click → **New Button**
+3) Set **Language** to `Python`
+4) Paste this command:
+
+```python
+import sys
+import importlib
+
+PROJECT_PATH = r"/Users/your_user/dev/github/maya-procedural-lighthouse"
+if PROJECT_PATH not in sys.path:
+    sys.path.append(PROJECT_PATH)
+
+import ui.simple_ui
+importlib.reload(ui.simple_ui)
+ui.simple_ui.show()
