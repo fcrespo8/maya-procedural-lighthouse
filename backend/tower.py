@@ -49,8 +49,8 @@ class TowerBuilder:
     def build(self) -> str:
         self._ensure_groups()
         tower = self._create_tapered_cylinder()
-        self._add_details(tower)
         self._assign_material(tower)
+        self._add_details(tower)
         return tower
 
     def _ensure_groups(self) -> None:
@@ -115,41 +115,40 @@ class TowerBuilder:
 
     def _add_bands(self, transform: str) -> None:
         """
-        Crea bandas horizontales extruyendo loops de caras cercanas a ciertas alturas.
+        Bandas completas (sin relieve): selecciona caras por altura con umbral ancho
+        y asigna materiales alternados (blanco / azul).
         """
         p = self.params
 
-        # En draft, pocas bandas / menor costo
-        band_count = p.band_count if p.quality != "draft" else max(1, p.band_count - 1)
+        band_count = 3
+        white_sg, blue_sg = self._setup_band_materials()
 
         bbox = cmds.exactWorldBoundingBox(transform)
         min_y, max_y = bbox[1], bbox[4]
         height = max(max_y - min_y, 0.0001)
 
-        # alturas relativas: abajo, medio, arriba
-        rel_positions = [0.20, 0.50, 0.80][:band_count]
+        rel_positions = [0.25, 0.50, 0.75][:band_count]
 
-        for rel in rel_positions:
-            y = min_y + height * rel
+        # Umbral más generoso => banda completa
+        band_half_thickness = height * (0.06 if p.quality == "high" else 0.09)
 
-            # Seleccionar caras cercanas a ese Y (simple: buscar caras cuyo centro esté cerca)
-            faces = cmds.ls(f"{transform}.f[*]", flatten=True) or []
-            target_faces = []
+        all_faces = cmds.ls(f"{transform}.f[*]", flatten=True) or []
+        faces_iter = all_faces if p.quality == "high" else all_faces[::3]
 
-            for f in faces[::10] if p.quality == "draft" else faces:
+        for i, rel in enumerate(rel_positions):
+            y_target = min_y + height * rel
+            band_faces = []
+
+            for f in faces_iter:
                 center = cmds.xform(f, q=True, ws=True, t=True)
-                if abs(center[1] - y) < (height * p.band_height_ratio):
-                    target_faces.append(f)
+                if abs(center[1] - y_target) <= band_half_thickness:
+                    band_faces.append(f)
 
-            if not target_faces:
+            if not band_faces:
                 continue
 
-            cmds.select(target_faces, r=True)
-            cmds.polyExtrudeFacet(
-                ltz=p.band_outset,  # empuja hacia afuera
-                ls=(1.0, 1.0, 1.0),
-                ch=False,
-            )
+            sg = white_sg if i % 2 == 0 else blue_sg
+            cmds.sets(band_faces, e=True, forceElement=sg)
 
         cmds.select(clear=True)
 
@@ -254,3 +253,37 @@ class TowerBuilder:
             cmds.connectAttr(f"{material}.outColor", f"{shading_group}.surfaceShader", force=True)
 
         cmds.sets(transform, edit=True, forceElement=shading_group)
+
+    def _get_or_create_material(self, name: str, color: tuple[float, float, float]) -> str:
+        """
+        Crea (si no existe) un material lambert y devuelve su shading group.
+        """
+        sg = f"{name}SG"
+
+        if not cmds.objExists(name):
+            mat = cmds.shadingNode("lambert", asShader=True, name=name)
+            cmds.setAttr(f"{mat}.color", *color, type="double3")
+            cmds.setAttr(f"{mat}.diffuse", 0.8)
+
+            sg = cmds.sets(renderable=True, noSurfaceShader=True, empty=True, name=sg)
+            cmds.connectAttr(f"{mat}.outColor", f"{sg}.surfaceShader", force=True)
+
+        return sg
+
+    def _setup_band_materials(self) -> tuple[str, str]:
+        """
+        Prepara materiales de bandas (blanco / rojo).
+        """
+        white_sg = self._get_or_create_material(
+            "LHT_towerWhite_MAT",
+            (0.8, 0.8, 0.8),  # blanco sucio
+        )
+        red_sg = self._get_or_create_material(
+            "LHT_towerRed_MAT",
+            (0.75, 0.15, 0.15),  # rojo desaturado
+        )
+        blue_sg = self._get_or_create_material(
+            "LHT_towerBlue_MAT",
+            (0.05, 0.12, 0.32),  # azul (ajustable)
+        )
+        return white_sg, blue_sg

@@ -16,8 +16,16 @@ WINDOW_NAME = "LHT_simpleUI"
 
 
 def _reload_modules() -> None:
+    import backend.cliff
+    import backend.tower
+    import backend.lighthouse
+    import backend.config
+
+    importlib.reload(backend.cliff)
+    importlib.reload(backend.tower)
     importlib.reload(backend.lighthouse)
     importlib.reload(backend.config)
+
 
 
 def build_lighthouse(*args) -> None:
