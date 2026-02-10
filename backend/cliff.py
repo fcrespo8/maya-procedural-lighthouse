@@ -57,10 +57,21 @@ class CliffBuilder:
         self._ensure_groups()
 
         cliff_transform = self._create_base_cube()
+        # Forma
         self._apply_vertex_noise(cliff_transform)
-        self._apply_face_color_variation(cliff_transform)
+
+        # Color (elegí UNO de estos enfoques; por ahora usá height color)
+        self._apply_height_color(cliff_transform)
+
+        # Si querés conservar tu variación por cara, dejala SOLO en high
+        # (en draft suele ser caro y a veces confunde con el height color)
+        if self.params.quality == "high":
+            self._apply_face_color_variation(cliff_transform)
+
+        # Material base
         self._assign_material(cliff_transform)
 
+        # Luces (si las estás usando)
         self._ensure_preview_light(cliff_transform)
         self._ensure_fill_light()
 
@@ -274,3 +285,41 @@ class CliffBuilder:
                 cmds.setAttr(f"{shape}.intensity", 0.25)
             if cmds.attributeQuery("illuminateByDefault", node=shape, exists=True):
                 cmds.setAttr(f"{shape}.illuminateByDefault", 1)
+
+    def _apply_height_color(self, transform: str) -> None:
+        """
+        Aplica color por altura usando vertex colors:
+        - base más oscura
+        - top más claro
+        """
+        bbox = cmds.exactWorldBoundingBox(transform)
+        min_y, max_y = bbox[1], bbox[4]
+        height = max(max_y - min_y, 0.0001)
+
+        # Colores (ajustables)
+        base_color = (0.18, 0.18, 0.18)   # oscuro
+        top_color = (0.45, 0.45, 0.45)    # claro
+
+        verts = cmds.ls(f"{transform}.vtx[*]", flatten=True) or []
+
+        for v in verts:
+            pos = cmds.pointPosition(v, world=True)
+            t = (pos[1] - min_y) / height
+            t = max(0.0, min(1.0, t))
+
+            # Lerp simple
+            color = (
+                base_color[0] * (1 - t) + top_color[0] * t,
+                base_color[1] * (1 - t) + top_color[1] * t,
+                base_color[2] * (1 - t) + top_color[2] * t,
+            )
+
+            cmds.polyColorPerVertex(v, rgb=color)
+
+        # Asegurar que se vean
+        shapes = cmds.listRelatives(transform, shapes=True, fullPath=True) or []
+        for s in shapes:
+            try:
+                cmds.setAttr(f"{s}.displayColors", 1)
+            except Exception:
+                pass
