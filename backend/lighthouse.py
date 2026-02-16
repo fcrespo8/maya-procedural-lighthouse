@@ -147,8 +147,8 @@ class LighthouseBuilder:
                 name=self.SEA_GEO,
                 w=size_x,
                 h=size_z,
-                sx=80,
-                sy=80,
+                sx=40,
+                sy=40,
             )
             cmds.parent(sea_tr, self.ENV_GRP)
 
@@ -176,35 +176,29 @@ class LighthouseBuilder:
 
             self._assign_backdrop_material(back_tr)
 
-    def _apply_sea_waves(self, sea_tr: str, amplitude: float = 0.25, seed: int = 12) -> None:
-        """
-        Ondas leves en el mar usando noise3D (deformer).
-        """
-        # Crear textura procedural
-        noise = cmds.shadingNode("noise", asTexture=True, name="LHT_seaNoise")
-        cmds.setAttr(f"{noise}.frequency", 4.0)
+    def _apply_sea_waves(self, sea_tr: str, amplitude: float = 0.25, seed: int = 0) -> None:
+        import math
+        import random
 
-        # Convertir textura a desplazamiento con displacementShader
-        disp = cmds.shadingNode("displacementShader", asShader=True, name="LHT_seaDisp")
-        cmds.connectAttr(f"{noise}.outAlpha", f"{disp}.displacement", force=True)
+        random.seed(seed)
 
-        # Crear un SG para conectar el displacement al shape (no afecta shading del material)
-        sg = "LHT_seaDispSG"
-        if not cmds.objExists(sg):
-            sg = cmds.sets(renderable=True, noSurfaceShader=True, empty=True, name=sg)
-        cmds.connectAttr(f"{disp}.displacement", f"{sg}.displacementShader", force=True)
+        verts = cmds.ls(f"{sea_tr}.vtx[*]", flatten=True) or []
+        if not verts:
+            return
 
-        # Asignar el SG de displacement al plane (solo para que el deformer tenga input)
-        # OJO: no reemplaza shading final porque después asignamos material al transform.
-        cmds.sets(sea_tr, e=True, forceElement=sg)
+        for v in verts:
+            pos = cmds.pointPosition(v, world=True)
+            x, z = pos[0], pos[2]
 
-        # Aplicar deformer de displacement
-        # Maya crea un nodo tipo "displacement" que usa el displacement shader.
-        # Alternativa más estable: usar aplanado y mover vértices, pero esto queda lindo y rápido.
-        try:
-            cmds.setAttr(f"{disp}.scale", amplitude)
-        except Exception:
-            pass
+            wave = (
+                math.sin(x * 0.15) * amplitude +
+                math.cos(z * 0.12) * amplitude * 0.8
+            )
+
+            noise = random.uniform(-amplitude * 0.15, amplitude * 0.15)
+
+            cmds.move(0, wave + noise, 0, v, r=True, ws=True)
+
 
     def _get_or_create_material(self, name: str, shader_type: str = "lambert") -> tuple[str, str]:
         """
@@ -222,7 +216,9 @@ class LighthouseBuilder:
 
     def _assign_sea_material(self, transform: str) -> None:
         mat, sg = self._get_or_create_material("LHT_sea_MAT", shader_type="blinn")
-        cmds.setAttr(f"{mat}.color", 0.05, 0.12, 0.22, type="double3")  # azul oscuro
+        cmds.setAttr(f"{mat}.color", 0.04, 0.18, 0.28, type="double3")
+        cmds.setAttr(f"{mat}.diffuse", 0.7)
+        cmds.setAttr(f"{mat}.incandescence", 0.02, 0.05, 0.07, type="double3")
         cmds.setAttr(f"{mat}.specularColor", 0.25, 0.25, 0.25, type="double3")
         cmds.setAttr(f"{mat}.eccentricity", 0.2)
         cmds.sets(transform, e=True, forceElement=sg)
